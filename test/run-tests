@@ -692,8 +692,9 @@ def handle_task(gh, args, config, task, dry_run=False):
         workdir = tempfile.mkdtemp(prefix=f"linux-system-role-test-work-{task.id_}-")
         artifactsdir = f"{workdir}/artifacts"
         os.makedirs(artifactsdir)
+        local_test_log = f"{artifactsdir}/test.log"
 
-        with redirect_output(f"{artifactsdir}/test.log"):
+        with redirect_output(local_test_log):
             print(title)
             print(len(title) * "=")
             print()
@@ -728,8 +729,6 @@ def handle_task(gh, args, config, task, dry_run=False):
                 logging.error(description)
 
         run("chmod", "a+rX", workdir)
-
-        local_test_log = f"{artifactsdir}/test.log"
 
         if dry_run:
             logging.info(f"Artifacts kept at: {artifactsdir}")
