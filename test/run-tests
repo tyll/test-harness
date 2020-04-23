@@ -34,6 +34,8 @@ COMMENT_CMD_TEST_ALL = "[citest]"
 COMMENT_CMD_TEST_PENDING = "[citest pending]"
 COMMENT_CMD_TEST_BAD = "[citest bad]"
 
+RESULT_FILE = "RESULT"
+ANSIBLE_LOGFILE = "ansible.log"
 
 class TransientErrorWaitTime:
     TIME_DEFAULT = 30
@@ -307,10 +309,10 @@ class Task:
     def __str__(self):
         return f"task {self.owner}/{self.repo}/{self.pull}:{self.image['name']}"
 
-    def run(self, artifactsdir, cachedir, inventory=None):
+    def run(self, artifactsbasedir, cachedir, inventory=None):
         """
-        Runs the task and puts results into @artifactsdir. Returns True if all
-        tests succeeded.
+        Runs the task and puts results into @artifactsbasedir. Returns True if
+        all tests succeeded.
         """
 
         if not inventory:
@@ -387,8 +389,12 @@ class Task:
                 )
                 return None
 
-            ansible_log = f"{artifactsdir}/ansible.log"
             for playbook in sorted(playbooks):
+                artifactsdir = os.path.join(
+                    artifactsbasedir, os.path.basename(playbook)
+                )
+                os.makedirs(artifactsdir)
+                ansible_log = f"{artifactsdir}/{ANSIBLE_LOGFILE}"
                 print(f"Testing {playbook}...", end="")
                 with redirect_output(ansible_log, mode="a"):
                     # Use the qcow2 inventory from standard-test-roles, which
@@ -415,14 +421,21 @@ class Task:
                     with open(ansible_log, "r") as ansible_file:
                         for line in ansible_file:
                             if inventory_fail_msg in line:
-                                print("ERROR: Inventory not properly set up")
+                                self._write_result(
+                                    artifactsdir, "ERROR: Inventory not properly set up"
+                                )
                                 return None
 
-                    print("FAILURE")
+                    self._write_result(artifactsdir, "FAILURE")
                     return False
 
-                print("SUCCESS")
+                self._write_result(artifactsdir, "SUCCESS")
             return True
+
+    def _write_result(self, artifactsdir, result):
+        with open(os.path.join(artifactsdir, RESULT_FILE), "w") as resultfile:
+            resultfile.write(result + "\n")
+            print(result)
 
 
 def pull_ok_to_test(gh, owner, repo, pull, author, head):
@@ -613,12 +626,21 @@ def scp(source, destination, secrets):
 
 def make_html(source_file):
     """ Create simple html file with navigation links from test.log  """
-    links = {"index": ".", "ansible log": "ansible.log"}
+    links = {"index": "."}
     html_file = source_file + ".html"
 
     anchors = ""
     for name, target in links.items():
         a_html = "<a href='{}'>{}</a> ".format(html.escape(target), html.escape(name))
+        anchors += a_html
+
+    for ansible_log in glob.glob(
+        os.path.join(os.path.basename(source_file), "*", ANSIBLE_LOGFILE)
+    ):
+        resultsfile = os.path.join(os.path.dirname(ansible_log), RESULT_FILE)
+        with open(resultsfile, "r") as infile:
+            result = infile.read().strip()
+        a_html = f"<br /><a href='{ansible_log}'>{ansible_log}</a> ({result})"
         anchors += a_html
 
     with open(source_file) as ifile:
@@ -730,12 +752,12 @@ def handle_task(gh, args, config, task, dry_run=False):
 
         run("chmod", "a+rX", workdir)
 
+        make_html(local_test_log)
         if dry_run:
             logging.info(f"Artifacts kept at: {artifactsdir}")
             with open(local_test_log) as test_log:
                 logging.info(test_log.read())
         else:
-            make_html(local_test_log)
 
             if task.image.get("upload_results"):
                 results_destination = config["results"]["destination"]

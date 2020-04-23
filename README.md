@@ -87,7 +87,12 @@ accessible URL for these results. For example:
     },
     {
       "name": "centos-7",
-      "source": "https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1804_02.qcow2c",
+      "source": "https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1809.qcow2c",
+      "upload_results": true
+    },
+    {
+      "name": "centos-8",
+      "source": "https://cloud.centos.org/centos/8/x86_64/images/CentOS-8-GenericCloud-8.1.1911-20200113.3.x86_64.qcow2",
       "upload_results": true
     }
   ],

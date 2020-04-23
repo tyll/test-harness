@@ -16,5 +16,5 @@ COPY test /test
 VOLUME /config /secrets /cache
 
 WORKDIR /home/tester
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+# ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/test/run-tests"]
